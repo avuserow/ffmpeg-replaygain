@@ -1,15 +1,13 @@
-all	:	amp-rg
-debug :	amp-rg-debug
+FF_PATH = /opt
+CC = cc
+CFLAGS = -I$(FF_PATH)/include -Wall -g
+LDFLAGS = -L$(FF_PATH)/lib -lavutil -lavformat -lavcodec -lavutil \
+		-lswscale -lz -lm -lpthread
 
-CFLAGS = -Wall -std=gnu99 -pedantic -g -I/usr/include/ffmpeg
-LINK = -lavutil -lavformat -lavcodec -lz -lavutil -lm
-EXE = amp-rg
-
-amp-rg	: main.o gain_analysis.o
-	gcc $(CFLAGS) -o $(EXE) main.o gain_analysis.o $(LINK)
-
-amp-rg-debug	:	main.o
-	gcc $(CFLAGS) -g -DDEBUG -o $(EXE) main.o $(LINK)
-
+all: fbff
+.c.o:
+	$(CC) -c $(CFLAGS) $<
+fbff: fbff.o ffs.o draw.o gain_analysis.o
+	$(CC) -o $@ $^ $(LDFLAGS)
 clean:
-	-rm $(EXE) *.o
+	rm -f *.o fbff
