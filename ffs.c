@@ -110,57 +110,11 @@ long ffs_pos(struct ffs *ffs, int diff)
 	return (ffs->si << 28) | (ffs->seq + diff);
 }
 
-void ffs_seek(struct ffs *ffs, long pos, int perframe)
-{
-	long idx = pos >> 28;
-	long seq = pos & 0x0fffffff;
-	av_seek_frame(ffs->fc, idx, seq * perframe,
-			perframe == 1 ? AVSEEK_FLAG_FRAME : 0);
-	ffs->seq = seq;
-	ffs->seq_all = 0;
-	ffs->seq_cur = 0;
-	ffs->ts = 0;
-}
-
-/* can more video packets be read */
-int ffs_vsync(struct ffs *ffs, struct ffs *affs, int abufs)
-{
-	int cur = affs->seq_cur;
-	int all = affs->seq_all;
-	int video = cur ? (all - cur) * abufs / cur : abufs;
-	/* video ffs should wait for audio ffs (ignoring buffered packets) */
-	return ffs->seq_all + abufs + video < affs->seq_all;
-}
-
-void ffs_vinfo(struct ffs *ffs, int *w, int *h)
-{
-	*h = ffs->cc->height;
-	*w = ffs->cc->width;
-}
-
 void ffs_ainfo(struct ffs *ffs, int *rate, int *bps, int *ch)
 {
 	*rate = ffs->cc->sample_rate;
 	*ch = ffs->cc->channels;
 	*bps = 16;
-}
-
-int ffs_vdec(struct ffs *ffs, void **buf)
-{
-	AVCodecContext *vcc = ffs->cc;
-	AVPacket *pkt = ffs_pkt(ffs);
-	int fine = 0;
-	if (!pkt)
-		return -1;
-	avcodec_decode_video2(vcc, ffs->tmp, &fine, pkt);
-	av_free_packet(pkt);
-	if (fine && buf) {
-		sws_scale(ffs->swsc, ffs->tmp->data, ffs->tmp->linesize,
-			  0, vcc->height, ffs->dst->data, ffs->dst->linesize);
-		*buf = (void *) ffs->dst->data[0];
-		return ffs->dst->linesize[0];
-	}
-	return 0;
 }
 
 int ffs_adec(struct ffs *ffs, void *buf, int blen)
@@ -185,39 +139,6 @@ int ffs_adec(struct ffs *ffs, void *buf, int blen)
 	}
 	av_free_packet(pkt);
 	return rdec;
-}
-
-static int fbm2pixfmt(int fbm)
-{
-	switch (fbm & 0x0fff) {
-	case 0x888:
-		return PIX_FMT_RGB32;
-	case 0x565:
-		return PIX_FMT_RGB565;
-	case 0x233:
-		return PIX_FMT_RGB8;
-	default:
-		fprintf(stderr, "ffs: unknown fb_mode()\n");
-		return PIX_FMT_RGB32;
-	}
-}
-
-void ffs_vsetup(struct ffs *ffs, float zoom, int fbm)
-{
-	int h = ffs->cc->height;
-	int w = ffs->cc->width;
-	int fmt = ffs->cc->pix_fmt;
-	int pixfmt = fbm2pixfmt(fbm);
-	uint8_t *buf = NULL;
-	int n;
-	ffs->swsc = sws_getContext(w, h, fmt, w * zoom, h * zoom,
-			pixfmt, SWS_FAST_BILINEAR | SWS_CPU_CAPS_MMX2,
-			NULL, NULL, NULL);
-	ffs->dst = avcodec_alloc_frame();
-	ffs->tmp = avcodec_alloc_frame();
-	n = avpicture_get_size(pixfmt, w * zoom, h * zoom);
-	buf = av_malloc(n * sizeof(uint8_t));
-	avpicture_fill((AVPicture *) ffs->dst, buf, pixfmt, w * zoom, h * zoom);
 }
 
 void ffs_globinit(void)

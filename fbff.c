@@ -94,7 +94,7 @@ static void mainloop(void)
 
 static void *process_audio(void *dat)
 {
-	int max_pcm = 0;
+	float max_pcm = 0;
 	while (1) {
 		while (!a_reset && (a_conswait() || paused) && !exited)
 			stroll();
@@ -109,7 +109,7 @@ static void *process_audio(void *dat)
 		Float_t analysis_buf[a_len[a_cons]];
 		int i;
 		for (i=0; i < a_len[a_cons]; i++) {
-			analysis_buf[i] = (((float)a_buf[a_cons][i])/32767.0);
+			analysis_buf[i] = (((float)a_buf[a_cons][i])/127.0);
 			if (max_pcm < analysis_buf[i])
 				max_pcm = analysis_buf[i];
 		}
@@ -120,7 +120,7 @@ static void *process_audio(void *dat)
 		a_cons = (a_cons + 1) & (AUDIOBUFS - 1);
 	}
 ret:
-	printf("Max PCM value found: %d\n", max_pcm);
+	printf("Max PCM value found: %f\n", max_pcm);
 	return NULL;
 }
 
